@@ -1,0 +1,77 @@
+/* ------------------------------
+   General Body Styles
+------------------------------- */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+    color: #333;
+}
+
+/* ------------------------------
+   Card Styles
+------------------------------- */
+.card {
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* ------------------------------
+   Form Input Styles
+------------------------------- */
+input, select, textarea {
+    border-radius: 8px;
+}
+
+input:focus, select:focus, textarea:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+}
+
+/* ------------------------------
+   Buttons
+------------------------------- */
+.btn-primary {
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.btn-light {
+    border-radius: 8px;
+}
+
+/* ------------------------------
+   Table Styles
+------------------------------- */
+table th, table td {
+    vertical-align: middle !important;
+    text-align: center;
+}
+
+table thead {
+    background-color: #0d6efd;
+    color: #fff;
+}
+
+table tbody tr:hover {
+    background-color: #e9f2ff;
+}
+
+/* ------------------------------
+   Navbar
+------------------------------- */
+.navbar-brand {
+    font-weight: 600;
+    font-size: 1.3rem;
+}
+
+.navbar .btn {
+    font-size: 0.9rem;
+}
+
+/* ------------------------------
+   Alerts
+------------------------------- */
+.alert {
+    border-radius: 8px;
+    font-size: 0.95rem;
+}
