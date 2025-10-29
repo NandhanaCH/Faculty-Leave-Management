@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Faculty Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    /* Simple chat panel styling */
+    .chat-panel {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 10px;
+      height: 480px;
+      overflow: auto;
+      background: #fafafa;
+    }
+
+    .chat-input {
+      width: 100%;
+    }
+
+    .message {
+      margin-bottom: 8px;
+    }
+
+    .message.user {
+      text-align: right;
+    }
+
+    .message .bubble {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 12px;
+      max-width: 80%;
+    }
+
+    .message.user .bubble {
+      background: #0d6efd;
+      color: white;
+    }
+
+    .message.bot .bubble {
+      background: #e9ecef;
+      color: #212529;
+    }
+
+    .small-muted {
+      font-size: .85rem;
+      color: #666;
+    }
+  </style>
+</head>
+
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+      <a class="navbar-brand" href="#">Faculty Dashboard</a>
+      <div class="d-flex">
+        <a href="/logout" class="btn btn-light">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container mt-4">
+    <h4>Welcome, {{ faculty_name }}</h4>
+
+    <div class="row">
+      <!-- Left column: leave form and history -->
+      <div class="col-md-8">
+        <div class="card mb-4">
+          <div class="card-header">Request Leave</div>
+          <div class="card-body">
+            <form id="leaveForm" method="POST" action="/faculty/request_leave" enctype="multipart/form-data">
+              <div class="mb-3">
+                <label for="date" class="form-label">Date</label>
+                <input type="date" class="form-control" name="date" id="dateInput" required />
+              </div>
+              <div class="mb-3">
+                <label for="days" class="form-label">Number of Days</label>
+                <input type="number" class="form-control" name="days" id="daysInput" required />
+              </div>
+              <div class="mb-3">
+                <label for="reason" class="form-label">Reason</label>
+                <textarea class="form-control" name="reason" id="reasonInput" rows="3" required></textarea>
+              </div>
+              <div class="mb-3">
+                <label for="document" class="form-label">Upload Document (Optional)</label>
+                <input type="file" class="form-control" name="document" id="documentInput" />
+              </div>
+              <button type="submit" class="btn btn-primary">Submit Request</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5>Your Leave History</h5>
+          <div>
+            <button id="downloadAllBtn" class="btn btn-outline-secondary btn-sm">Download Full Report (PDF)</button>
+          </div>
+        </div>
+
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Date</th>
+              <th>Days</th>
+              <th>Reason</th>
+              <th>Status</th>
+              <th>Document</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for leave in leaves %}
+            <tr>
+              <td>{{ leave.id }}</td>
+              <td>{{ leave.date }}</td>
+              <td>{{ leave.days }}</td>
+              <td>{{ leave.reason }}</td>
+              <td>{{ leave.status }}</td>
+              <td>
+                {% if leave.document %}
+                <a href="{{ leave.document }}" target="_blank">View</a>
+                {% else %}
+                -
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Right column: chatbot -->
+      <div class="col-md-4">
+        <div class="card">
+          <div class="card-header">Assistant — Fill form & generate reports</div>
+          <div class="card-body d-flex flex-column" style="height: 640px;">
+            <div id="chatPanel" class="chat-panel flex-grow-1 mb-2"></div>
+
+            <div class="mb-2">
+              <input id="chatInput" class="form-control chat-input"
+                placeholder="Type: set date 2025-10-28 OR set days 3 OR set reason Family event OR show draft OR submit OR generate report" />
+            </div>
+
+            <div class="d-flex gap-2">
+              <button id="sendBtn" class="btn btn-primary">Send</button>
+              <label class="btn btn-outline-secondary mb-0">
+                Upload Document<input type="file" id="chatFile" hidden />
+              </label>
+              <button id="showDraftBtn" class="btn btn-outline-info">Show Draft</button>
+              <button id="clearDraftBtn" class="btn btn-outline-danger">Clear Draft</button>
+            </div>
+
+            <div class="mt-2 small-muted">Tip: use 'set date YYYY-MM-DD', 'set days N', 'set reason ...', 'submit' to
+              send request, or 'generate report' to download PDF.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const chatPanel = document.getElementById('chatPanel');
+    const chatInput = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const showDraftBtn = document.getElementById('showDraftBtn');
+    const clearDraftBtn = document.getElementById('clearDraftBtn');
+    const chatFile = document.getElementById('chatFile');
+    const downloadAllBtn = document.getElementById('downloadAllBtn');
+
+    function appendMessage(text, who = 'bot') {
+      const div = document.createElement('div');
+      div.className = 'message ' + who;
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.textContent = text;
+      div.appendChild(bubble);
+      chatPanel.appendChild(div);
+      chatPanel.scrollTop = chatPanel.scrollHeight;
+    }
+
+    async function sendMessageToServer(message) {
+      appendMessage(message, 'user');
+      const res = await fetch('/faculty/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+      });
+      const data = await res.json();
+      appendMessage(data.reply || 'No reply from server', 'bot');
+
+      // If server asks to generate report, it returns intent in JSON
+      if (data.intent === 'generate_report') {
+        // call report generation endpoint
+        const payload = { report_type: data.report_type };
+        if (data.report_type === 'range') {
+          payload.start_date = data.start_date;
+          payload.end_date = data.end_date;
+        } else if (data.report_type === 'by_id') {
+          payload.leave_id = data.leave_id;
+        }
+        // trigger download
+        generateReportDownload(payload);
+      }
+    }
+
+    sendBtn.addEventListener('click', () => {
+      const text = chatInput.value.trim();
+      if (!text) return;
+      sendMessageToServer(text);
+      chatInput.value = '';
+    });
+
+    chatInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        sendBtn.click();
+      }
+    });
+
+    showDraftBtn.addEventListener('click', () => sendMessageToServer('show draft'));
+    clearDraftBtn.addEventListener('click', () => sendMessageToServer('clear draft'));
+
+    // chat file upload
+    chatFile.addEventListener('change', async (ev) => {
+      const file = ev.target.files[0];
+      if (!file) return;
+      appendMessage('Uploading document: ' + file.name, 'user');
+
+      const form = new FormData();
+      form.append('document', file);
+      const res = await fetch('/faculty/upload_document', { method: 'POST', body: form });
+      const data = await res.json();
+      if (data.success) {
+        appendMessage('Document uploaded and attached to draft.', 'bot');
+        // Optionally update the form's document field shown in main form:
+        // we won't set the actual file input value, but user can still send via regular form.
+      } else {
+        appendMessage('Upload failed: ' + (data.error || 'Unknown'), 'bot');
+      }
+      chatFile.value = '';
+    });
+
+    // generate report POST and trigger download
+    async function generateReportDownload(payload) {
+      // fetch PDF as blob from /faculty/generate_report
+      const res = await fetch('/faculty/generate_report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to generate' }));
+        appendMessage('Report generation failed: ' + (err.error || 'Unknown'), 'bot');
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      // set filename from server suggestion or fallback
+      const filename = 'leave_report.pdf';
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      appendMessage('Report downloaded.', 'bot');
+    }
+
+    // download full report button
+    downloadAllBtn.addEventListener('click', async () => {
+      appendMessage('Generating full report...', 'user');
+      // request full report
+      generateReportDownload({ report_type: 'all' });
+    });
+
+    // optional: pre-seed a welcome message
+    appendMessage('Hello! I can help fill your leave form and generate reports. Try "set date YYYY-MM-DD", "set days N", "set reason ..." or "submit".', 'bot');
+
+    // Bonus: show draft fields dynamically on page when "show draft" response arrives
+    // (The /faculty/chat returns 'draft' in the JSON; we can use it to pre-fill form)
+    // We'll poll the form after each chat response - modify sendMessageToServer to check for draft and fill inputs
+    // Update sendMessageToServer to handle draft -> (we'll override here)
+    (function patchSend() {
+      const original = sendMessageToServer;
+      sendMessageToServer = async function (message) {
+        appendMessage(message, 'user');
+        const res = await fetch('/faculty/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message })
+        });
+        const data = await res.json();
+        appendMessage(data.reply || 'No reply from server', 'bot');
+
+        // If a draft exists, pre-fill main form fields
+        if (data.draft) {
+          if (data.draft.date) document.getElementById('dateInput').value = data.draft.date;
+          if (data.draft.days) document.getElementById('daysInput').value = data.draft.days;
+          if (data.draft.reason) document.getElementById('reasonInput').value = data.draft.reason;
+          // Note: document_path can't be filled into file input for security reasons.
+        }
+
+        // If server asks to generate report, it returns intent in JSON
+        if (data.intent === 'generate_report') {
+          const payload = { report_type: data.report_type };
+          if (data.report_type === 'range') {
+            payload.start_date = data.start_date;
+            payload.end_date = data.end_date;
+          } else if (data.report_type === 'by_id') {
+            payload.leave_id = data.leave_id;
+          }
+          generateReportDownload(payload);
+        }
+      }
+    })();
+
+  </script>
+
+</body>
+
+</html>
