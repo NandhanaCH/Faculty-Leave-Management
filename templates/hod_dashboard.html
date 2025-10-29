@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HOD Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-success">
+    <div class="container">
+      <a class="navbar-brand" href="#">HOD Dashboard</a>
+      <div class="d-flex">
+        <a href="/hod/generate_report" class="btn btn-light me-2">📄 Download Report</a>
+        <a href="/logout" class="btn btn-outline-light">Logout</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container mt-4">
+    <h4>Welcome, {{ hod_name }}</h4>
+
+    <h5 class="mt-4">Faculty Leave Requests</h5>
+    <table class="table table-bordered table-hover mt-3">
+      <thead class="table-success">
+        <tr>
+          <th>Faculty Name</th>
+          <th>Date</th>
+          <th>Days</th>
+          <th>Reason</th>
+          <th>Document</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for leave in leave_requests %}
+        <tr>
+          <td>{{ leave.faculty_name }}</td>
+          <td>{{ leave.date }}</td>
+          <td>{{ leave.days }}</td>
+          <td>{{ leave.reason }}</td>
+          <td>
+            {% if leave.document %}
+            <a href="{{ leave.document }}" target="_blank">View</a>
+            {% else %}
+            -
+            {% endif %}
+          </td>
+          <td>{{ leave.status }}</td>
+          <td>
+            <a href="/hod/approve/{{ leave.id }}" class="btn btn-success btn-sm">Approve</a>
+            <a href="/hod/reject/{{ leave.id }}" class="btn btn-danger btn-sm">Reject</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 🧠 Chatbot Floating Button -->
+  <div id="chatbot-container" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000;">
+    <button class="btn btn-success rounded-circle shadow" id="chatbot-toggle">💬</button>
+    <div id="chatbot-box" class="card shadow" style="width: 300px; display: none;">
+      <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+        HOD Assistant
+        <button class="btn-close btn-close-white btn-sm" id="chatbot-close"></button>
+      </div>
+      <div class="card-body" id="chatbot-messages" style="height: 250px; overflow-y: auto;"></div>
+      <div class="card-footer">
+        <input type="text" id="chatbot-input" class="form-control" placeholder="Type a message...">
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const toggle = document.getElementById('chatbot-toggle');
+    const box = document.getElementById('chatbot-box');
+    const closeBtn = document.getElementById('chatbot-close');
+    const input = document.getElementById('chatbot-input');
+    const messages = document.getElementById('chatbot-messages');
+
+    toggle.addEventListener('click', () => {
+      box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    });
+
+    closeBtn.addEventListener('click', () => {
+      box.style.display = 'none';
+    });
+
+    input.addEventListener('keypress', async (e) => {
+      if (e.key === 'Enter' && input.value.trim() !== '') {
+        const userMessage = input.value;
+        messages.innerHTML += `<div><b>You:</b> ${userMessage}</div>`;
+        input.value = '';
+
+        const res = await fetch('/hod/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: userMessage })
+        });
+        const data = await res.json();
+        messages.innerHTML += `<div><b>Bot:</b> ${data.reply}</div>`;
+
+        // If bot says generate report, show button
+        if (data.intent === 'hod/generate_report') {
+          messages.innerHTML += `<div><a href="/hod/generate_report" class="btn btn-sm btn-outline-success mt-2">Download Report 📄</a></div>`;
+        }
+
+        messages.scrollTop = messages.scrollHeight;
+      }
+    });
+  </script>
+</body>
+
+</html>
