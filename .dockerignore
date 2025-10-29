@@ -1,0 +1,9 @@
+__pycache__      # Python cache files
+*.pyc            # Compiled Python files
+*.pyo            # Optimized Python files
+*.pyd
+*.db             # Local database files (like SQLite)
+.env             # Secret environment variables
+venv             # Virtual environment folder
+instance         # Flask instance folder (if used)
+*.sqlite3        # Any SQLite database files
