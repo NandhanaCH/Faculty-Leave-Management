@@ -730,5 +730,7 @@ def hod_chat():
 
 
 if __name__ == "__main__":
-    # For development only; in production use a proper WSGI server
-    app.run(debug=True)
+    import os
+    port = int(os.environ.get("PORT", 80))
+    app.run(host="0.0.0.0", port=port)
+
