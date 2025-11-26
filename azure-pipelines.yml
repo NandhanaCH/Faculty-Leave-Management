@@ -5,7 +5,7 @@ pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  imageName: "faculty-leave"
+  imageName: "faculty-leave-app"
 
 steps:
 - task: DockerInstaller@0
@@ -22,7 +22,7 @@ steps:
   displayName: Login to ACR
   inputs:
     command: login
-    containerRegistry: facultyleaveacr123
+    containerRegistry: facultyleaveacr123   # ACR service connection name
 
 - task: Docker@2
   displayName: Push Image to ACR
@@ -34,6 +34,6 @@ steps:
 - task: AzureWebAppContainer@1
   displayName: Deploy to Azure Web App
   inputs:
-    azureSubscription: "<YOUR-AZURE-SERVICE-CONNECTION>"
-    appName: "faculty-leave-webapp"
-    containers: "facultyleaveacr123.azurecr.io/faculty-leave:latest"
+    azureSubscription: "AzureConnection"   # Azure RM service connection
+    appName: "faculty-leave-plan"          # Your Web App name
+    containers: "facultyleaveacr123.azurecr.io/faculty-leave-app:latest"
