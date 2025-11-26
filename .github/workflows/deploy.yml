@@ -1,0 +1,64 @@
+name: CI/CD - Flask Docker App to Azure Web App
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+      IMAGE_NAME: ${{ secrets.IMAGE_NAME }}
+      WEBAPP_NAME: ${{ secrets.WEBAPP_NAME }}
+      RESOURCE_GROUP: ${{ secrets.RESOURCE_GROUP }}
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    # Login to Azure
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    # Login to ACR using username/password
+    - name: Login to ACR
+      uses: docker/login-action@v2
+      with:
+        registry: ${{ env.ACR_LOGIN_SERVER }}
+        username: ${{ secrets.ACR_USERNAME }}
+        password: ${{ secrets.ACR_PASSWORD }}
+
+    # Build and Push Docker Image
+    - name: Build and Push Docker Image
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        file: ./Dockerfile
+        push: true
+        tags: |
+          ${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_NAME }}:latest
+
+    # Deploy to Azure Web App for Containers
+    - name: Deploy to Azure Web App
+      uses: azure/cli@v1
+      with:
+        inlineScript: |
+          az webapp config container set \
+            --name $WEBAPP_NAME \
+            --resource-group $RESOURCE_GROUP \
+            --docker-custom-image-name $ACR_LOGIN_SERVER/$IMAGE_NAME:latest \
+            --docker-registry-server-url https://$ACR_LOGIN_SERVER \
+            --docker-registry-server-user ${{ secrets.ACR_USERNAME }} \
+            --docker-registry-server-password ${{ secrets.ACR_PASSWORD }}
+
+    - name: Restart Web App
+      uses: azure/cli@v1
+      with:
+        inlineScript: |
+          az webapp restart --name $WEBAPP_NAME --resource-group $RESOURCE_GROUP
